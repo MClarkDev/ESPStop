@@ -20,7 +20,7 @@ void ESPStop::loop() {
   bcast->setAppState(appState);
   delay(1);
 
-  if(!bcast->isConfigured()) {
+  if(!bcast->isRunning()) {
     appState = AppState::Setup;
     return;
   }

@@ -13,7 +13,8 @@ Broadcaster::Broadcaster() {
 
   delay(250);
   boolean forceSetup = !digitalRead(26);
-  if (!bLib->isConfigured() || forceSetup) {
+  boolean configured = bLib->isConfigured();
+  if (!configured || forceSetup) {
 
     BleepingServer* server = bLib->getServer();
     server->startServer();
@@ -21,7 +22,7 @@ Broadcaster::Broadcaster() {
     // Custom Config Parameters
     server->startCustomPropertyService(uuids, 2);
 
-    configured = false;
+    running = false;
     return;
   }
 
@@ -31,6 +32,7 @@ Broadcaster::Broadcaster() {
 
   ESP_LOGI(_BLib, "Connecting to: %s", netName.c_str());
 
+  running = true;
   WiFi.mode(WIFI_STA);
   WiFi.begin(netName.c_str(), netPass.c_str());
 
@@ -41,8 +43,8 @@ boolean Broadcaster::isConnected() {
   return WiFi.status() == WL_CONNECTED;
 }
 
-boolean Broadcaster::isConfigured() {
-  return configured;
+boolean Broadcaster::isRunning() {
+  return running;
 }
 
 AppState Broadcaster::getAppState() {
@@ -57,11 +59,16 @@ String Broadcaster::getCastAddress() {
   return bLib->getConfig()->getString(ConfUUID_BCastHost);
 }
 
+int Broadcaster::getCastPort() {
+  return atoi(bLib->getConfig()->getString(ConfUUID_BCastPort).c_str());
+}
+
 void BroadcasterTask(void *parameter) {
   Broadcaster* bcast = ((Broadcaster*) parameter);
 
   WiFiUDP udp;
   String bcastHost = bcast->getCastAddress();
+  int bcastPort = bcast->getCastPort();
 
   while (true) {
     vTaskDelay(500);
@@ -69,10 +76,24 @@ void BroadcasterTask(void *parameter) {
       continue;
     }
 
-    const char* stat = bcast->getAppState() == AppState::Active ? "OK" : "XX";
+    const char* msg;
+    udp.beginPacket(bcastHost.c_str() , bcastPort);
+    switch (bcast->getAppState()) {
+      case AppState::Active:
+        msg = "OK";
+        break;
+      case AppState::Armed:
+        msg = "ARM";
+        break;
+      case AppState::Stopped:
+        msg = "STOP";
+        break;
+      default:
+        msg = "ERR";
+        break;
+    }
 
-    udp.beginPacket(bcastHost.c_str() , 4443);
-    udp.printf("%s @ %lu\n", stat, millis());
+    udp.printf("%s", msg);
     udp.endPacket();
   }
 }

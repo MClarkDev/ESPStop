@@ -11,17 +11,18 @@
 
 class Broadcaster {
   private:
-    boolean configured;
+    boolean running;
     AppState appState;
     BleepingLibrary* bLib;
 
   public:
     Broadcaster();
     boolean isConnected();
-    boolean isConfigured();
+    boolean isRunning();
     void setAppState(AppState state);
     AppState getAppState();
     String getCastAddress();
+    int getCastPort();
 };
 
 void BroadcasterTask(void *parameter);
